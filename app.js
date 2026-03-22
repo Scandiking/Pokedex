@@ -70,6 +70,7 @@ function parseRoute() {
     const id = hash.split('/')[2];
     return { page: 'pokemon', id };
   }
+  if (hash.startsWith('/about'))  return { page: 'about' };
   if (hash.startsWith('/filter')) return { page: 'filter' };
   if (hash.startsWith('/search')) {
     const qs = hash.includes('?') ? hash.split('?')[1] : '';
@@ -97,7 +98,8 @@ async function router() {
     a.classList.toggle('active',
       (page === 'home'   && route.page === 'home')   ||
       (page === 'search' && route.page === 'search') ||
-      (page === 'filter' && route.page === 'filter')
+      (page === 'filter' && route.page === 'filter') ||
+      (page === 'about'  && route.page === 'about')
     );
   });
 
@@ -108,6 +110,7 @@ async function router() {
       case 'home':    await renderHome(app);               break;
       case 'search':  await renderSearch(app, route);      break;
       case 'filter':  await renderFilter(app);             break;
+      case 'about':   renderAbout(app);                    break;
       case 'pokemon': await renderPokemon(app, route.id);  break;
       default:
         app.innerHTML = errorBox('404', 'Page not found.', '#/');
@@ -1161,6 +1164,27 @@ function setupHeaderSearch() {
 
   btn?.addEventListener('click', go);
   input?.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+
+// ---- ABOUT PAGE ----
+function renderAbout(app) {
+  app.innerHTML = `
+    <div class="about-page fade-in">
+      <h2 class="section-title">// ABOUT PKDEX //</h2>
+      <div class="about-card">
+        <p>PKDEX is a personal side project — a retro-styled Pokédex built as a portfolio piece to demonstrate front-end development skills.</p>
+        <p>It is not affiliated with, endorsed by, or connected to Nintendo, Game Freak, or The Pokémon Company in any way. All Pokémon data is sourced from the open <a href="https://pokeapi.co" target="_blank" rel="noopener" class="accent-link">PokéAPI</a>.</p>
+        <p>The project is intentionally kept simple and runs entirely in the browser — no build step, no framework, no backend. Just vanilla HTML, CSS, and JavaScript deployed on Vercel.</p>
+        <div class="about-stack">
+          <span class="tag">VANILLA JS</span>
+          <span class="tag">HASH ROUTING</span>
+          <span class="tag">POKÉAPI</span>
+          <span class="tag">VERCEL</span>
+          <span class="tag">NO FRAMEWORK</span>
+        </div>
+        <p class="about-footer-note">Built by a student of IT &amp; Information Systems &mdash; showcasing practical skills in SPA architecture, API integration, and CSS design.</p>
+      </div>
+    </div>`;
 }
 
 // ---- INIT ----

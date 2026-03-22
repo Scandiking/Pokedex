@@ -1139,3 +1139,33 @@ body {
   box-shadow: 0 0 8px var(--accent);
 }
 
+
+/* ---- ABOUT PAGE ---- */
+.about-page { max-width: 720px; margin: 40px auto; padding: 0 16px; }
+.about-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.about-card p {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.8;
+  margin: 0;
+}
+.about-stack { display: flex; flex-wrap: wrap; gap: 10px; }
+.tag {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 6px 10px;
+  letter-spacing: 1px;
+}
+.accent-link { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent); }
+.accent-link:hover { color: var(--text); border-color: var(--text); }
+.about-footer-note { color: var(--text-dim) !important; font-size: 12px !important; }
