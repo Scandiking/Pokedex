@@ -1,0 +1,1141 @@
+/* =====================================================
+   PKDEX — RETRO 90s TERMINAL POKÉDEX
+   ===================================================== */
+
+/* ---- FONTS & RESET ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #07070f;
+  --surface:   #0e0e1c;
+  --surface2:  #14142a;
+  --border:    #1e1e40;
+  --border2:   #2a2a55;
+  --text:      #c8c8e0;
+  --text-dim:  #6060a0;
+  --text-bright: #ffffff;
+  --accent:    #00ffcc;
+  --accent2:   #ff3366;
+  --glow:      rgba(0,255,204,0.25);
+
+  /* Type colours */
+  --normal:   #9199a1; --fire:     #e62829; --water:    #2980ef;
+  --electric: #fac000; --grass:    #3fa129; --ice:      #3dcef3;
+  --fighting: #ff8000; --poison:   #9141cb; --ground:   #915121;
+  --flying:   #81b9ef; --psychic:  #ef4179; --bug:      #91a119;
+  --rock:     #afa981; --ghost:    #704170; --dragon:   #5060e1;
+  --dark:     #624d4e; --steel:    #60a1b8; --fairy:    #ef70ef;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ---- CRT EFFECTS ---- */
+.crt-vignette {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9000;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.8) 100%);
+}
+.scanlines {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9001;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
+  );
+}
+
+/* ---- HEADER ---- */
+#site-header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,7,15,0.95);
+  border-bottom: 2px solid var(--border2);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 20px rgba(0,255,204,0.1);
+}
+.header-inner {
+  max-width: 1400px; margin: 0 auto;
+  padding: 0 24px;
+  height: 60px;
+  display: flex; align-items: center; gap: 24px;
+}
+
+.logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  letter-spacing: -1px;
+}
+.logo-pk  { color: #ff3366; text-shadow: 0 0 10px #ff3366, 0 0 20px rgba(255,51,102,0.5); }
+.logo-dex { color: #00ffcc; text-shadow: 0 0 10px #00ffcc, 0 0 20px rgba(0,255,204,0.5); }
+.logo-cursor { color: var(--accent); animation: blink 1s step-end infinite; }
+
+.main-nav { display: flex; gap: 4px; }
+.nav-link {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  padding: 6px 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  border: 1px solid transparent;
+  letter-spacing: 1px;
+  transition: color .15s, border-color .15s, text-shadow .15s;
+}
+.nav-link:hover, .nav-link.active {
+  color: var(--accent);
+  border-color: var(--border2);
+  text-shadow: 0 0 8px var(--accent);
+}
+
+.header-search {
+  margin-left: auto;
+  display: flex;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+}
+.header-search input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  background: transparent;
+  border: none; outline: none;
+  color: var(--text);
+  padding: 6px 12px;
+  width: 180px;
+  letter-spacing: 1px;
+}
+.header-search input::placeholder { color: var(--text-dim); }
+.header-search button {
+  background: var(--surface2);
+  border: none; border-left: 1px solid var(--border2);
+  color: var(--accent);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background .15s;
+}
+.header-search button:hover { background: var(--border); }
+
+/* ---- MAIN & FOOTER ---- */
+#app { flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; padding: 32px 24px; }
+#site-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 14px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  letter-spacing: 1px;
+}
+.accent { color: var(--accent); }
+
+/* ---- LOADING ---- */
+.loading-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 60vh; gap: 32px;
+}
+.pokeball-anim {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid var(--border2);
+  animation: spin 1.5s linear infinite;
+  box-shadow: 0 0 20px var(--glow);
+}
+.pb-top    { height: 34px; background: var(--accent2); }
+.pb-band   { height: 12px; background: #111; display: flex; align-items: center; justify-content: center; }
+.pb-button { width: 16px; height: 16px; border-radius: 50%; background: #222; border: 3px solid var(--border2); }
+.pb-bottom { height: 34px; background: var(--surface2); }
+.loading-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px var(--accent);
+}
+.loading-inline {
+  padding: 48px; text-align: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px; color: var(--accent); letter-spacing: 2px;
+}
+
+/* ---- SECTION TITLES ---- */
+.section-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+.section-header {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 3px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border2);
+  text-shadow: 0 0 6px var(--glow);
+}
+
+/* ---- HOME PAGE ---- */
+.home-hero {
+  text-align: center;
+  padding: 48px 0 40px;
+}
+.hero-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(28px, 5vw, 56px);
+  color: var(--text-bright);
+  text-shadow:
+    0 0 10px var(--accent),
+    0 0 30px rgba(0,255,204,0.4),
+    0 0 60px rgba(0,255,204,0.2);
+  letter-spacing: -2px;
+  margin-bottom: 16px;
+}
+.hero-title .pk { color: #ff3366; text-shadow: 0 0 10px #ff3366, 0 0 30px rgba(255,51,102,0.4); }
+.hero-title .dex { color: #00ffcc; text-shadow: 0 0 10px #00ffcc, 0 0 30px rgba(0,255,204,0.4); }
+.hero-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 3px;
+}
+
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.home-actions {
+  display: flex; gap: 16px; justify-content: center;
+  flex-wrap: wrap;
+  padding-bottom: 48px;
+}
+
+/* ---- POKEMON CARD ---- */
+.poke-card {
+  background: var(--surface);
+  border: 1px solid var(--card-color, var(--border2));
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20px 16px 20px;
+  --card-color: var(--border2);
+  box-shadow: 0 0 0px var(--card-color);
+}
+.poke-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%);
+}
+.poke-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 32px var(--card-color), 0 0 0 1px var(--card-color);
+}
+
+.poke-card-number {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  align-self: flex-end;
+  letter-spacing: 1px;
+}
+.poke-card-img-wrap {
+  width: 140px; height: 140px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.poke-card-img-wrap::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle, var(--card-color) 0%, transparent 70%);
+  opacity: 0.12;
+  z-index: 0;
+}
+.poke-card-img {
+  width: 130px; height: 130px;
+  object-fit: contain;
+  position: relative; z-index: 1;
+  image-rendering: auto;
+  filter: drop-shadow(0 0 12px var(--card-color));
+  transition: transform .2s;
+}
+.poke-card:hover .poke-card-img { transform: scale(1.06); }
+
+.poke-card-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: var(--text-bright);
+  margin: 12px 0 10px;
+  text-align: center;
+  letter-spacing: 0;
+  word-break: break-word;
+}
+.poke-card-types {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+}
+
+/* Type-coloured card borders */
+.poke-card[data-type="normal"]   { --card-color: var(--normal); }
+.poke-card[data-type="fire"]     { --card-color: var(--fire); }
+.poke-card[data-type="water"]    { --card-color: var(--water); }
+.poke-card[data-type="electric"] { --card-color: var(--electric); }
+.poke-card[data-type="grass"]    { --card-color: var(--grass); }
+.poke-card[data-type="ice"]      { --card-color: var(--ice); }
+.poke-card[data-type="fighting"] { --card-color: var(--fighting); }
+.poke-card[data-type="poison"]   { --card-color: var(--poison); }
+.poke-card[data-type="ground"]   { --card-color: var(--ground); }
+.poke-card[data-type="flying"]   { --card-color: var(--flying); }
+.poke-card[data-type="psychic"]  { --card-color: var(--psychic); }
+.poke-card[data-type="bug"]      { --card-color: var(--bug); }
+.poke-card[data-type="rock"]     { --card-color: var(--rock); }
+.poke-card[data-type="ghost"]    { --card-color: var(--ghost); }
+.poke-card[data-type="dragon"]   { --card-color: var(--dragon); }
+.poke-card[data-type="dark"]     { --card-color: var(--dark); }
+.poke-card[data-type="steel"]    { --card-color: var(--steel); }
+.poke-card[data-type="fairy"]    { --card-color: var(--fairy); }
+
+/* ---- TYPE BADGES ---- */
+.type-badge {
+  display: inline-block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  text-shadow: none;
+  border: 1px solid transparent;
+}
+.type-badge.large { font-size: 13px; padding: 5px 14px; }
+
+.type-badge.type-normal   { background: var(--normal);   color: #fff; border-color: #bbbbc0; }
+.type-badge.type-fire     { background: var(--fire);     color: #fff; border-color: #ff5050; }
+.type-badge.type-water    { background: var(--water);    color: #fff; border-color: #60b0ff; }
+.type-badge.type-electric { background: var(--electric); color: #000; border-color: #ffe840; }
+.type-badge.type-grass    { background: var(--grass);    color: #fff; border-color: #60e060; }
+.type-badge.type-ice      { background: var(--ice);      color: #000; border-color: #70e8f8; }
+.type-badge.type-fighting { background: var(--fighting); color: #fff; border-color: #ff9840; }
+.type-badge.type-poison   { background: var(--poison);   color: #fff; border-color: #c070e0; }
+.type-badge.type-ground   { background: var(--ground);   color: #fff; border-color: #c08040; }
+.type-badge.type-flying   { background: var(--flying);   color: #000; border-color: #a0c8ff; }
+.type-badge.type-psychic  { background: var(--psychic);  color: #fff; border-color: #ff80a0; }
+.type-badge.type-bug      { background: var(--bug);      color: #fff; border-color: #c8d040; }
+.type-badge.type-rock     { background: var(--rock);     color: #fff; border-color: #d0c898; }
+.type-badge.type-ghost    { background: var(--ghost);    color: #fff; border-color: #9070b8; }
+.type-badge.type-dragon   { background: var(--dragon);   color: #fff; border-color: #8090ff; }
+.type-badge.type-dark     { background: var(--dark);     color: #fff; border-color: #907070; }
+.type-badge.type-steel    { background: var(--steel);    color: #fff; border-color: #90c8d8; }
+.type-badge.type-fairy    { background: var(--fairy);    color: #fff; border-color: #ff90ff; }
+
+/* ---- BUTTONS ---- */
+.btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 2px;
+  padding: 12px 24px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid;
+  transition: all .15s;
+  display: inline-block;
+}
+.btn-primary {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(0,255,204,0.2);
+}
+.btn-primary:hover {
+  background: rgba(0,255,204,0.1);
+  box-shadow: 0 0 16px rgba(0,255,204,0.4);
+  text-shadow: 0 0 6px var(--accent);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border2);
+}
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---- SEARCH PAGE ---- */
+.search-page {}
+.search-header {
+  margin-bottom: 32px;
+}
+.search-bar-wrap {
+  display: flex;
+  margin-bottom: 24px;
+  border: 1px solid var(--border2);
+}
+.search-input {
+  flex: 1;
+  font-family: 'VT323', monospace;
+  font-size: 24px;
+  background: var(--surface);
+  border: none; outline: none;
+  color: var(--text);
+  padding: 12px 20px;
+  letter-spacing: 2px;
+}
+.search-input::placeholder { color: var(--text-dim); }
+.search-input:focus { box-shadow: inset 0 0 8px rgba(0,255,204,0.1); }
+#search-go {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  letter-spacing: 2px;
+  padding: 12px 24px;
+  background: var(--surface2);
+  border: none; border-left: 1px solid var(--border2);
+  color: var(--accent);
+  cursor: pointer;
+}
+#search-go:hover { background: var(--border); }
+
+.filter-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+.type-filter-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.type-filter-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 4px 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  opacity: 0.5;
+  transition: opacity .15s, transform .1s;
+  border-radius: 2px;
+}
+.type-filter-btn:hover { opacity: 0.8; }
+.type-filter-btn.active { opacity: 1; box-shadow: 0 0 8px rgba(255,255,255,0.3); transform: scale(1.05); }
+
+/* Apply type colours to filter buttons too */
+.type-filter-btn.type-normal   { background: var(--normal);   color: #fff; }
+.type-filter-btn.type-fire     { background: var(--fire);     color: #fff; }
+.type-filter-btn.type-water    { background: var(--water);    color: #fff; }
+.type-filter-btn.type-electric { background: var(--electric); color: #000; }
+.type-filter-btn.type-grass    { background: var(--grass);    color: #fff; }
+.type-filter-btn.type-ice      { background: var(--ice);      color: #000; }
+.type-filter-btn.type-fighting { background: var(--fighting); color: #fff; }
+.type-filter-btn.type-poison   { background: var(--poison);   color: #fff; }
+.type-filter-btn.type-ground   { background: var(--ground);   color: #fff; }
+.type-filter-btn.type-flying   { background: var(--flying);   color: #000; }
+.type-filter-btn.type-psychic  { background: var(--psychic);  color: #fff; }
+.type-filter-btn.type-bug      { background: var(--bug);      color: #fff; }
+.type-filter-btn.type-rock     { background: var(--rock);     color: #fff; }
+.type-filter-btn.type-ghost    { background: var(--ghost);    color: #fff; }
+.type-filter-btn.type-dragon   { background: var(--dragon);   color: #fff; }
+.type-filter-btn.type-dark     { background: var(--dark);     color: #fff; }
+.type-filter-btn.type-steel    { background: var(--steel);    color: #fff; }
+.type-filter-btn.type-fairy    { background: var(--fairy);    color: #fff; }
+
+.pokemon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.no-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.search-info {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+.load-more-wrap {
+  grid-column: 1 / -1;
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* ---- POKEMON DETAIL PAGE ---- */
+.pokemon-page {
+  --page-color: var(--accent);
+}
+.pokemon-page[data-type="normal"]   { --page-color: var(--normal); }
+.pokemon-page[data-type="fire"]     { --page-color: var(--fire); }
+.pokemon-page[data-type="water"]    { --page-color: var(--water); }
+.pokemon-page[data-type="electric"] { --page-color: var(--electric); }
+.pokemon-page[data-type="grass"]    { --page-color: var(--grass); }
+.pokemon-page[data-type="ice"]      { --page-color: var(--ice); }
+.pokemon-page[data-type="fighting"] { --page-color: var(--fighting); }
+.pokemon-page[data-type="poison"]   { --page-color: var(--poison); }
+.pokemon-page[data-type="ground"]   { --page-color: var(--ground); }
+.pokemon-page[data-type="flying"]   { --page-color: var(--flying); }
+.pokemon-page[data-type="psychic"]  { --page-color: var(--psychic); }
+.pokemon-page[data-type="bug"]      { --page-color: var(--bug); }
+.pokemon-page[data-type="rock"]     { --page-color: var(--rock); }
+.pokemon-page[data-type="ghost"]    { --page-color: var(--ghost); }
+.pokemon-page[data-type="dragon"]   { --page-color: var(--dragon); }
+.pokemon-page[data-type="dark"]     { --page-color: var(--dark); }
+.pokemon-page[data-type="steel"]    { --page-color: var(--steel); }
+.pokemon-page[data-type="fairy"]    { --page-color: var(--fairy); }
+
+.poke-topbar {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.back-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+  letter-spacing: 1px;
+  padding: 4px 0;
+  border-bottom: 1px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.back-btn:hover { color: var(--accent); border-color: var(--accent); }
+.poke-id-display {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+.poke-nav-arrows {
+  margin-left: auto;
+  display: flex; gap: 12px;
+}
+.poke-nav-arrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  transition: all .15s;
+}
+.poke-nav-arrow:hover {
+  color: var(--page-color);
+  border-color: var(--page-color);
+  box-shadow: 0 0 6px var(--page-color);
+}
+
+/* Main layout: image + info side by side */
+.poke-main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 40px;
+  margin-bottom: 40px;
+  align-items: start;
+}
+
+.poke-left { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+
+.poke-sprite-container {
+  width: 280px; height: 280px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  cursor: zoom-in;
+  transition: border-color .15s;
+}
+.poke-sprite-container:hover { border-color: var(--page-color); }
+.poke-sprite-zoom-hint {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 1px;
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.5);
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity .15s;
+  pointer-events: none;
+}
+.poke-sprite-container:hover .poke-sprite-zoom-hint { opacity: 1; }
+.poke-sprite-container::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at center, var(--page-color) 0%, transparent 70%);
+  opacity: 0.08;
+}
+.poke-sprite-container::after {
+  content: '';
+  position: absolute; inset: 0;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+}
+.poke-sprite {
+  width: 240px; height: 240px;
+  object-fit: contain;
+  position: relative; z-index: 1;
+  filter: drop-shadow(0 0 20px var(--page-color));
+  transition: filter .3s;
+}
+.shiny-toggle {
+  position: absolute; bottom: 8px; right: 8px; z-index: 2;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text-dim);
+  padding: 3px 8px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all .15s;
+}
+.shiny-toggle:hover, .shiny-toggle.active {
+  color: #ffe066;
+  border-color: #ffe066;
+  text-shadow: 0 0 6px #ffe066;
+  box-shadow: 0 0 8px rgba(255,224,102,0.3);
+}
+
+.poke-types { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+.poke-quick-info {
+  width: 100%;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  border: 1px solid var(--border);
+  background: var(--border);
+}
+.quick-info-item {
+  background: var(--surface);
+  padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.qi-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1.5px;
+}
+.qi-value {
+  font-size: 22px;
+  color: var(--text-bright);
+}
+
+/* Right column */
+.poke-right {}
+.poke-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(16px, 3vw, 28px);
+  color: var(--text-bright);
+  text-shadow: 0 0 12px var(--page-color), 0 0 24px rgba(var(--page-color), 0.2);
+  margin-bottom: 4px;
+  word-break: break-word;
+  filter: drop-shadow(0 0 6px var(--page-color));
+}
+.poke-genus {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 24px;
+}
+
+.poke-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  border: 1px solid var(--border);
+  background: var(--border);
+  margin-bottom: 24px;
+}
+.poke-meta-item {
+  background: var(--surface);
+  padding: 10px 14px;
+}
+.poke-meta-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1.5px;
+  display: block;
+  margin-bottom: 2px;
+}
+.poke-meta-value {
+  font-size: 20px;
+  color: var(--text);
+}
+.poke-meta-value.legendary { color: #ffe066; text-shadow: 0 0 6px #ffe066; }
+.poke-meta-value.mythical  { color: #ff80ff; text-shadow: 0 0 6px #ff80ff; }
+
+.poke-section {
+  margin-bottom: 32px;
+}
+.poke-section.full-width {
+  grid-column: 1 / -1;
+}
+
+/* ---- STAT BARS ---- */
+.stats-grid { display: flex; flex-direction: column; gap: 8px; }
+.stat-row {
+  display: grid;
+  grid-template-columns: 70px 44px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.stat-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.stat-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-bright);
+  text-align: right;
+}
+.stat-bar-wrap {
+  height: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.stat-bar-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 4px currentColor;
+}
+.stat-row.total .stat-name { color: var(--text); font-size: 12px; }
+.stat-row.total .stat-value { color: var(--accent); font-size: 15px; text-shadow: 0 0 6px var(--accent); }
+
+/* ---- ABILITIES ---- */
+.abilities-list { display: flex; flex-direction: column; gap: 8px; }
+.ability-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.ability-item:hover { border-color: var(--border2); }
+.ability-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+.ability-desc {
+  font-size: 16px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  display: none;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  line-height: 1.3;
+}
+.ability-item.expanded .ability-desc { display: block; }
+.hidden-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--border2);
+  padding: 2px 6px;
+  letter-spacing: 1px;
+  margin-left: auto;
+}
+.ability-item.hidden-ability .ability-name { color: var(--text-dim); font-style: italic; }
+
+/* ---- BIO ---- */
+.poke-bio {
+  font-family: 'VT323', monospace;
+  font-size: 22px;
+  color: var(--text);
+  line-height: 1.5;
+  padding: 16px 20px;
+  border-left: 3px solid var(--page-color, var(--accent));
+  background: rgba(0,0,0,.25);
+  font-style: italic;
+}
+
+/* ---- FLAVOR TEXTS ---- */
+.flavor-list { display: flex; flex-direction: column; gap: 12px; }
+.flavor-entry {
+  display: flex; gap: 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-left: 3px solid var(--page-color);
+}
+.flavor-game {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  min-width: 90px;
+  margin-top: 2px;
+}
+.flavor-text { font-size: 20px; color: var(--text); line-height: 1.3; }
+
+/* ---- TYPE CHART ---- */
+.type-chart { display: flex; flex-direction: column; gap: 10px; }
+.type-chart-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.type-chart-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  min-width: 80px;
+  text-align: right;
+}
+.type-chart-label.weak   { color: #ff4444; text-shadow: 0 0 6px rgba(255,68,68,0.5); }
+.type-chart-label.resist { color: #44aaff; text-shadow: 0 0 6px rgba(68,170,255,0.5); }
+.type-chart-label.immune { color: #888; }
+.type-chart-types { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---- EVOLUTION CHAIN ---- */
+.evo-chain-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+}
+.evo-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all .15s;
+  min-width: 90px;
+}
+.evo-stage:hover { border-color: var(--page-color); box-shadow: 0 0 8px var(--page-color); }
+.evo-stage.current { border-color: var(--page-color); box-shadow: 0 0 12px var(--page-color); }
+.evo-sprite { width: 72px; height: 72px; object-fit: contain; image-rendering: pixelated; }
+.evo-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.evo-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-dim);
+  font-size: 20px;
+}
+.evo-trigger {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  text-align: center;
+  max-width: 80px;
+}
+.evo-branches { display: flex; flex-direction: column; gap: 12px; }
+.evo-branch { display: flex; align-items: center; gap: 8px; }
+
+/* ---- MOVES TABLE ---- */
+.move-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border2);
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+.move-tab {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all .15s;
+  margin-bottom: -1px;
+}
+.move-tab:hover { color: var(--text); background: var(--surface2); }
+.move-tab.active {
+  color: var(--accent);
+  background: var(--bg);
+  border-color: var(--border2);
+  border-bottom: 1px solid var(--bg);
+}
+
+.move-table-wrap { border: 1px solid var(--border2); background: var(--surface); }
+.move-table { width: 100%; border-collapse: collapse; display: none; }
+.move-table.active { display: table; }
+.move-table thead th {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.move-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 18px;
+}
+.move-table tr:last-child td { border-bottom: none; }
+.move-table tr:hover td { background: var(--surface2); }
+.move-level {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  width: 50px;
+}
+.move-name { color: var(--text); }
+.move-type { }
+.move-power, .move-acc, .move-pp {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ---- ERROR ---- */
+.error-box {
+  padding: 48px;
+  text-align: center;
+  border: 1px solid var(--accent2);
+  background: rgba(255,51,102,0.05);
+}
+.error-box h2 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: var(--accent2);
+  margin-bottom: 16px;
+}
+.error-box p {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 24px;
+}
+
+/* ---- ANIMATIONS ---- */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.blink { animation: blink 1s step-end infinite; }
+.fade-in { animation: fadeIn .3s ease forwards; }
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 900px) {
+  .poke-main { grid-template-columns: 1fr; }
+  .poke-left { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .poke-sprite-container { width: 220px; height: 220px; }
+  .featured-grid { grid-template-columns: 1fr; max-width: 340px; margin: 0 auto 40px; }
+  .poke-meta-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  #app { padding: 16px; }
+  .header-inner { padding: 0 12px; gap: 12px; }
+  .main-nav { display: none; }
+  .header-search input { width: 120px; }
+  .hero-title { font-size: 24px; }
+  .poke-name { font-size: 14px; }
+  .pokemon-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---- LIGHTBOX ---- */
+.lightbox {
+  position: fixed; inset: 0; z-index: 800;
+  display: none; align-items: center; justify-content: center;
+}
+.lightbox.open { display: flex; }
+.lightbox-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.93);
+  cursor: zoom-out;
+}
+.lightbox-content {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  padding: 24px;
+  animation: fadeIn .2s ease;
+  max-width: 90vw;
+}
+.lightbox-close {
+  align-self: flex-end;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; letter-spacing: 2px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-dim);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.lightbox-close:hover { color: var(--accent); border-color: var(--accent); text-shadow: 0 0 6px var(--accent); }
+#lightbox-img {
+  max-width: min(600px, 88vw);
+  max-height: 70vh;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px rgba(0,255,204,0.4));
+}
+#lightbox-caption {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  color: var(--text-bright);
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+/* ---- FILTER PAGE ---- */
+.filter-panel {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 28px;
+  margin-bottom: 32px;
+  display: flex; flex-direction: column; gap: 28px;
+}
+.filter-section-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 3px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.gen-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.gen-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 1px;
+  padding: 5px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all .15s;
+}
+.gen-btn:hover { border-color: var(--border2); color: var(--text); }
+.gen-btn.active {
+  background: rgba(0,255,204,0.08);
+  border-color: var(--accent);
+  color: var(--accent);
+  text-shadow: 0 0 6px var(--accent);
+}
+
+.stat-ranges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+}
+.range-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.range-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 1px;
+  color: var(--text-dim);
+  min-width: 72px;
+}
+.range-input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  width: 70px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.range-input::-webkit-outer-spin-button,
+.range-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.range-input:focus { border-color: var(--border2); }
+.range-sep {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; color: var(--text-dim);
+}
+
+.sort-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.sort-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 1px;
+  padding: 5px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all .15s;
+}
+.sort-btn:hover { border-color: var(--border2); color: var(--text); }
+.sort-btn.active {
+  background: rgba(0,255,204,0.08);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sort-dir-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 1px;
+  padding: 5px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all .15s;
+}
+.sort-dir-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.filter-progress {
+  margin-bottom: 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; color: var(--accent); letter-spacing: 2px;
+}
+.progress-bar-wrap {
+  height: 4px; margin-top: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width .15s linear;
+  box-shadow: 0 0 8px var(--accent);
+}
+

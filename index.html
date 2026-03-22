@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PKDEX // POKÉMON DATABASE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="crt-vignette"></div>
+  <div class="scanlines"></div>
+
+  <header id="site-header">
+    <div class="header-inner">
+      <a href="#/" class="logo" aria-label="PKDEX Home">
+        <span class="logo-pk">PK</span><span class="logo-dex">DEX</span>
+        <span class="logo-cursor">_</span>
+      </a>
+      <nav class="main-nav">
+        <a href="#/" class="nav-link" data-page="home">HOME</a>
+        <a href="#/search" class="nav-link" data-page="search">BROWSE</a>
+        <a href="#/filter" class="nav-link" data-page="filter">FILTER</a>
+      </nav>
+      <div class="header-search">
+        <input type="text" id="header-search-input" placeholder="# OR NAME..." autocomplete="off" spellcheck="false">
+        <button id="header-search-btn" aria-label="Search">▶</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app">
+    <div class="loading-screen">
+      <div class="pokeball-anim">
+        <div class="pb-top"></div>
+        <div class="pb-band"><div class="pb-button"></div></div>
+        <div class="pb-bottom"></div>
+      </div>
+      <p class="loading-text">INITIALIZING SYSTEM<span class="blink">_</span></p>
+    </div>
+  </main>
+
+  <footer id="site-footer">
+    <p>DATA FROM <span class="accent">POKÉAPI</span> &nbsp;·&nbsp; NOT AFFILIATED WITH NINTENDO OR GAME FREAK &nbsp;·&nbsp; <span class="accent">PKDEX v1.0</span></p>
+  </footer>
+
+  <!-- LIGHTBOX -->
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full size image">
+    <div class="lightbox-backdrop"></div>
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="lightbox-close">✕ CLOSE</button>
+      <img id="lightbox-img" src="" alt="">
+      <p id="lightbox-caption"></p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
