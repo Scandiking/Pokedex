@@ -1,7 +1,7 @@
 # PKDEX
 
 A retro-styled Pokédex built for the web. It pulls data from [PokéAPI](https://pokeapi.co) and presents it through a dark, CRT-terminal aesthetic inspired by 90s computer interfaces — think green-on-black screens, scanline overlays, and pixel fonts, rather than the clean corporate look of most fan sites.
-https://readme-typing-svg.demolab.com/demo/?font=%22Press+Start+2P%22&color=33AAFF&lines=PKDEX
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=%22Press+Start+2P%22&pause=1000&color=33AAFF&width=435&lines=PKDEX)](https://git.io/typing-svg)  
 Live at **[pkdex-omega.vercel.app](https://pkdex-omega.vercel.app)**
 
 ---
