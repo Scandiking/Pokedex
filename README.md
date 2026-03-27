@@ -28,19 +28,19 @@ Live at **[pkdex-omega.vercel.app](https://pkdex-omega.vercel.app)**
 ## Screenshots
 
 **Home — three random Pokémon on every visit**
-![Home page showing three random Pokémon](assets/Three_random_pokemon.png)
+<img src="assets/Three_random_pokemon.png" alt="Home page showing three random Pokémon" width="640">
 
 **Browse — search by name or number**
-![Browse page](assets/Browse_Pokemon.png)
+<img src="assets/Browse_Pokemon.png" alt="Browse page" width="640">
 
 **Browse — filter by type**
-![Browse page filtered by type](assets/Browse_Pokemon_by.png)
+<img src="assets/Browse_Pokemon_by.png" alt="Browse page filtered by type" width="640">
 
 **Pokémon entry — full detail page**
-![Individual Pokémon detail page](assets/See_Pokemon.png)
+<img src="assets/See_Pokemon.png" alt="Individual Pokémon detail page" width="640">
 
 **Advanced Filter — narrow by generation, type, stats, height, and weight**
-![Advanced filter page](assets/Advanced_FIlter.png)
+<img src="assets/Advanced_FIlter.png" alt="Advanced filter page" width="640">
 
 ---
 
