@@ -25,6 +25,25 @@ Live at **[pkdex-omega.vercel.app](https://pkdex-omega.vercel.app)**
 
 ---
 
+## Screenshots
+
+**Home — three random Pokémon on every visit**
+![Home page showing three random Pokémon](assets/Three_random_pokemon.png)
+
+**Browse — search by name or number**
+![Browse page](assets/Browse_Pokemon.png)
+
+**Browse — filter by type**
+![Browse page filtered by type](assets/Browse_Pokemon_by.png)
+
+**Pokémon entry — full detail page**
+![Individual Pokémon detail page](assets/See_Pokemon.png)
+
+**Advanced Filter — narrow by generation, type, stats, height, and weight**
+![Advanced filter page](assets/Advanced_FIlter.png)
+
+---
+
 ## Stack
 
 - Vanilla HTML, CSS, and JavaScript — no build tools, no frameworks
