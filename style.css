@@ -77,7 +77,7 @@ body {
   letter-spacing: -1px;
 }
 .logo-pk  { color: #ff3366; text-shadow: 0 0 10px #ff3366, 0 0 20px rgba(255,51,102,0.5); }
-.logo-dex { color: #00ffcc; text-shadow: 0 0 10px #00ffcc, 0 0 20px rgba(0,255,204,0.5); }
+.logo-dex { color: #33aaff; text-shadow: 0 0 10px #33aaff, 0 0 20px rgba(51,170,255,0.5); }
 .logo-cursor { color: var(--accent); animation: blink 1s step-end infinite; }
 
 .main-nav { display: flex; gap: 4px; }
@@ -194,16 +194,37 @@ body {
 .hero-title {
   font-family: 'Press Start 2P', monospace;
   font-size: clamp(28px, 5vw, 56px);
-  color: var(--text-bright);
-  text-shadow:
-    0 0 10px var(--accent),
-    0 0 30px rgba(0,255,204,0.4),
-    0 0 60px rgba(0,255,204,0.2);
   letter-spacing: -2px;
   margin-bottom: 16px;
 }
-.hero-title .pk { color: #ff3366; text-shadow: 0 0 10px #ff3366, 0 0 30px rgba(255,51,102,0.4); }
-.hero-title .dex { color: #00ffcc; text-shadow: 0 0 10px #00ffcc, 0 0 30px rgba(0,255,204,0.4); }
+/* --- PKDEX hero: visor sweep (auto) + glisten burst (hover) --- */
+.hero-title .pk {
+  background: linear-gradient(115deg,
+    #aa2244 0%, #ff3366 28%, #ffaac8 48%, #ff3366 68%, #aa2244 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 18px rgba(255,51,102,0.7), 0 0 40px rgba(255,51,102,0.3);
+  animation: hero-visor-idle 6s ease-in-out infinite;
+}
+.hero-title .dex {
+  background: linear-gradient(115deg,
+    #1166bb 0%, #33aaff 28%, #aaddff 48%, #33aaff 68%, #1166bb 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 18px rgba(51,170,255,0.7), 0 0 40px rgba(51,170,255,0.3);
+  animation: hero-visor-idle 6s ease-in-out infinite;
+  animation-delay: 0.35s;
+}
+/* Idle: sweep then long pause */
+@keyframes hero-visor-idle {
+  0%   { background-position: 200% 0; }
+  30%  { background-position: -100% 0; }
+  100% { background-position: -100% 0; }
+}
 .hero-sub {
   font-family: 'Share Tech Mono', monospace;
   font-size: 13px;
@@ -915,7 +936,59 @@ body {
   color: var(--accent);
   width: 50px;
 }
+.move-row { cursor: pointer; }
+.move-row:hover td { background: var(--surface2) !important; }
 .move-name { color: var(--text); }
+.move-expand-icon {
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-right: 7px;
+  display: inline-block;
+  transition: color .15s;
+}
+.move-row:hover .move-expand-icon { color: var(--accent); }
+
+.move-detail-row { display: none; }
+.move-detail-row.open { display: table-row; }
+.move-detail-row td {
+  padding: 10px 16px 14px !important;
+  background: var(--bg) !important;
+  border-bottom: 2px solid var(--border2) !important;
+}
+.move-detail-loading {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.move-detail-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.move-stat {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.move-stat-label {
+  color: var(--text-dim);
+  margin-right: 5px;
+  font-size: 10px;
+}
+.move-stat-priority { border-color: var(--accent); color: var(--accent); }
+.move-effect-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.7;
+  margin: 0;
+}
 .move-type { }
 .move-power, .move-acc, .move-pp {
   font-family: 'Share Tech Mono', monospace;
@@ -1169,3 +1242,17 @@ body {
 .accent-link { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent); }
 .accent-link:hover { color: var(--text); border-color: var(--text); }
 .about-footer-note { color: var(--text-dim) !important; font-size: 12px !important; }
+
+/* ---- CURSOR GLOW ---- */
+.cursor-glow {
+  position: fixed;
+  pointer-events: none;
+  width: 840px;
+  height: 840px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(180,220,255,0.045) 0%, rgba(100,180,255,0.025) 35%, transparent 70%);
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  top: -420px;
+  left: -420px;
+}

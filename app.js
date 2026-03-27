@@ -45,22 +45,59 @@ const GAME_NAMES   = {
 };
 
 // ---- API CACHE ----
-const _cache = new Map();
+// Two-layer cache: in-memory (session) + localStorage (persistent, 48 h TTL).
+// Required by PokéAPI fair use policy: "locally cache resources whenever you request them."
+const _cache   = new Map();
+const _LS_PFX  = 'pkdex:v1:';
+const _CACHE_TTL = 48 * 60 * 60 * 1000; // 48 hours
+
+function _lsGet(url) {
+  try {
+    const raw = localStorage.getItem(_LS_PFX + url);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > _CACHE_TTL) { localStorage.removeItem(_LS_PFX + url); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function _lsSet(url, data) {
+  try {
+    localStorage.setItem(_LS_PFX + url, JSON.stringify({ data, ts: Date.now() }));
+  } catch {
+    // Quota exceeded — prune oldest pkdex entries and retry once
+    try {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith(_LS_PFX));
+      keys.sort((a, b) => {
+        const ta = JSON.parse(localStorage.getItem(a) || '{}').ts || 0;
+        const tb = JSON.parse(localStorage.getItem(b) || '{}').ts || 0;
+        return ta - tb;
+      });
+      keys.slice(0, Math.ceil(keys.length / 2)).forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(_LS_PFX + url, JSON.stringify({ data, ts: Date.now() }));
+    } catch { /* give up — in-memory cache still works */ }
+  }
+}
+
 async function apiFetch(url) {
   if (_cache.has(url)) return _cache.get(url);
+  const persisted = _lsGet(url);
+  if (persisted) { _cache.set(url, persisted); return persisted; }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   const data = await res.json();
   _cache.set(url, data);
+  _lsSet(url, data);
   return data;
 }
 
-const getPokemon    = id  => apiFetch(`${API}/pokemon/${id}`);
-const getSpecies    = id  => apiFetch(`${API}/pokemon-species/${id}`);
-const getEvolution  = url => apiFetch(url);
+const getPokemon    = id   => apiFetch(`${API}/pokemon/${id}`);
+const getSpecies    = id   => apiFetch(`${API}/pokemon-species/${id}`);
+const getEvolution  = url  => apiFetch(url);
 const getType       = name => apiFetch(`${API}/type/${name}`);
-const getAbility    = url => apiFetch(url);
-const getAllPokemon  = () => apiFetch(`${API}/pokemon?limit=${TOTAL}&offset=0`);
+const getAbility    = url  => apiFetch(url);
+const getMove       = name => apiFetch(`${API}/move/${name}`);
+const getAllPokemon  = ()   => apiFetch(`${API}/pokemon?limit=${TOTAL}&offset=0`);
 
 // ---- ROUTER ----
 function parseRoute() {
@@ -71,7 +108,11 @@ function parseRoute() {
     return { page: 'pokemon', id };
   }
   if (hash.startsWith('/about'))  return { page: 'about' };
-  if (hash.startsWith('/filter')) return { page: 'filter' };
+  if (hash.startsWith('/filter')) {
+    const qs = hash.includes('?') ? hash.split('?')[1] : '';
+    const p  = new URLSearchParams(qs);
+    return { page: 'filter', types: p.getAll('type') };
+  }
   if (hash.startsWith('/search')) {
     const qs = hash.includes('?') ? hash.split('?')[1] : '';
     const p  = new URLSearchParams(qs);
@@ -109,7 +150,7 @@ async function router() {
     switch (route.page) {
       case 'home':    await renderHome(app);               break;
       case 'search':  await renderSearch(app, route);      break;
-      case 'filter':  await renderFilter(app);             break;
+      case 'filter':  await renderFilter(app, route);       break;
       case 'about':   renderAbout(app);                    break;
       case 'pokemon': await renderPokemon(app, route.id);  break;
       default:
@@ -194,7 +235,10 @@ function pokemonCard(p) {
 }
 
 function typeBadge(type, large = false) {
-  return `<span class="type-badge type-${type}${large ? ' large' : ''}">${type.toUpperCase()}</span>`;
+  return `<span class="type-badge type-${type}${large ? ' large' : ''}"
+    style="cursor:pointer;"
+    onclick="event.stopPropagation();navigate('#/filter?type=${type}')"
+    title="Browse ${type} type">${type.toUpperCase()}</span>`;
 }
 
 // ---- HOME PAGE ----
@@ -320,18 +364,20 @@ async function renderSearch(app, route) {
       );
     }
 
-    // If type filters active, fetch and check — but cap at 300 to stay responsive
+    // If type filters active, use the type API endpoint to get exact lists
     if (selectedTypes.length > 0) {
-      const cap = Math.min(filtered.length, 300);
-      const toCheck = filtered.slice(0, cap);
-      const fetched = await Promise.all(
-        toCheck.map(p => getPokemon(p.id).catch(() => null))
+      const typeData = await Promise.all(selectedTypes.map(t => getType(t)));
+      const typeSets = typeData.map(td =>
+        new Set(
+          td.pokemon
+            .map(e => parseInt(e.pokemon.url.split('/').filter(Boolean).pop(), 10))
+            .filter(id => id >= 1 && id <= TOTAL)
+        )
       );
-      currentResults = fetched.filter(p => {
-        if (!p) return false;
-        const pTypes = p.types.map(t => t.type.name);
-        return selectedTypes.every(t => pTypes.includes(t));
-      });
+      // Intersect: pokemon must have ALL selected types
+      const validIds = new Set([...typeSets[0]].filter(id => typeSets.every(s => s.has(id))));
+      // Also apply any name/number search
+      currentResults = filtered.filter(p => validIds.has(p.id));
     } else {
       currentResults = filtered; // just metadata for now, fetch on render
     }
@@ -349,10 +395,9 @@ async function renderSearch(app, route) {
       return;
     }
 
-    // If selectedTypes are active, results are already full Pokemon objects.
-    // Otherwise they're lightweight {name, id} objects — fetch sprites now.
+    // Results are lightweight {name, id} objects — fetch full data for display
     let mons;
-    if (selectedTypes.length > 0 && slice[0].sprites) {
+    if (slice[0]?.sprites) {
       mons = slice;
     } else {
       mons = await Promise.all(slice.map(p => getPokemon(p.id).catch(() => null)));
@@ -613,8 +658,9 @@ async function renderPokemon(app, id) {
   // -- Ability descriptions (click to expand) --
   setupAbilities(pokemon.abilities);
 
-  // -- Move tabs --
+  // -- Move tabs & clickable move details --
   setupMoveTabs();
+  setupMoveClicks();
 
   // -- Evolution chain (async, non-blocking) --
   if (species?.evolution_chain?.url) {
@@ -798,7 +844,7 @@ async function loadEvolutionChain(url, currentId) {
 }
 
 // ---- FILTER PAGE ----
-async function renderFilter(app) {
+async function renderFilter(app, route = {}) {
   setLoading(app, 'LOADING FILTER');
 
   if (!_allPokemon) {
@@ -843,10 +889,10 @@ async function renderFilter(app) {
 
         <!-- TYPE -->
         <div>
-          <p class="filter-section-title">TYPE</p>
+          <p class="filter-section-title">TYPE <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);font-weight:normal;">(MAX 2)</span></p>
           <div class="type-filter-grid">
             ${TYPES.map(t => `
-              <button class="type-filter-btn type-${t}" data-type="${t}">${t.toUpperCase()}</button>
+              <button class="type-filter-btn type-${t}${(route.types||[]).includes(t) ? ' active' : ''}" data-type="${t}">${t.toUpperCase()}</button>
             `).join('')}
           </div>
         </div>
@@ -919,7 +965,7 @@ async function renderFilter(app) {
 
   // ---- State ----
   let selectedGen   = 0;
-  let selectedTypes = [];
+  let selectedTypes = [...(route.types || [])];
   let sortKey       = 'id';
   let sortDir       = 'asc';
 
@@ -932,13 +978,17 @@ async function renderFilter(app) {
     });
   });
 
-  // Type buttons
+  // Type buttons (max 2 selected at once)
   document.querySelectorAll('.type-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const t = btn.dataset.type;
-      btn.classList.toggle('active');
-      if (selectedTypes.includes(t)) selectedTypes = selectedTypes.filter(x => x !== t);
-      else selectedTypes.push(t);
+      if (selectedTypes.includes(t)) {
+        selectedTypes = selectedTypes.filter(x => x !== t);
+        btn.classList.remove('active');
+      } else if (selectedTypes.length < 2) {
+        selectedTypes.push(t);
+        btn.classList.add('active');
+      }
     });
   });
 
@@ -1079,6 +1129,7 @@ function renderMoves(moves) {
   const active = METHODS.filter(m => groups[m].length > 0);
   if (!active.length) return '<p style="color:var(--text-dim)">No move data.</p>';
 
+  const cols = m => m === 'level-up' ? 2 : 1;
   return `
     <div class="move-tabs">
       ${active.map((m, i) => `
@@ -1097,10 +1148,18 @@ function renderMoves(moves) {
           </thead>
           <tbody>
             ${groups[m].map(mv => `
-              <tr>
+              <tr class="move-row" data-move="${mv.name}">
                 ${m === 'level-up'
                   ? `<td class="move-level">${mv.level || '—'}</td>` : ''}
-                <td class="move-name">${mv.name.replace(/-/g, ' ').toUpperCase()}</td>
+                <td class="move-name">
+                  <span class="move-expand-icon">▶</span>
+                  ${mv.name.replace(/-/g, ' ').toUpperCase()}
+                </td>
+              </tr>
+              <tr class="move-detail-row" data-move="${mv.name}">
+                <td colspan="${cols(m)}">
+                  <div class="move-detail-loading">LOADING<span class="blink">_</span></div>
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>`).join('')}
@@ -1115,6 +1174,59 @@ function setupMoveTabs() {
       document.querySelectorAll('.move-table').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       document.querySelector(`.move-table[data-method="${m}"]`)?.classList.add('active');
+    });
+  });
+}
+
+function setupMoveClicks() {
+  document.querySelectorAll('.move-row').forEach(row => {
+    row.addEventListener('click', async () => {
+      const moveName = row.dataset.move;
+      const detailRow = document.querySelector(`.move-detail-row[data-move="${CSS.escape(moveName)}"]`);
+      if (!detailRow) return;
+
+      const icon = row.querySelector('.move-expand-icon');
+      const isOpen = detailRow.classList.contains('open');
+
+      if (isOpen) {
+        detailRow.classList.remove('open');
+        icon.textContent = '▶';
+        return;
+      }
+
+      detailRow.classList.add('open');
+      icon.textContent = '▼';
+
+      if (detailRow.dataset.loaded) return; // already fetched
+
+      try {
+        const data = await getMove(moveName);
+        const eng    = data.effect_entries?.find(e => e.language.name === 'en');
+        const effect = (eng?.short_effect || '—')
+          .replace(/\$effect_chance/g, data.effect_chance ?? '?');
+        const type   = data.type?.name || 'normal';
+        const power  = data.power  ?? '—';
+        const acc    = data.accuracy != null ? data.accuracy + '%' : '—';
+        const pp     = data.pp     ?? '—';
+        const cls    = (data.damage_class?.name || '—').toUpperCase();
+        const prio   = data.priority != null && data.priority !== 0
+          ? (data.priority > 0 ? '+' : '') + data.priority : null;
+
+        detailRow.querySelector('td').innerHTML = `
+          <div class="move-detail-grid">
+            ${typeBadge(type)}
+            <span class="move-stat"><span class="move-stat-label">PWR</span>${power}</span>
+            <span class="move-stat"><span class="move-stat-label">ACC</span>${acc}</span>
+            <span class="move-stat"><span class="move-stat-label">PP</span>${pp}</span>
+            <span class="move-stat"><span class="move-stat-label">CLASS</span>${cls}</span>
+            ${prio ? `<span class="move-stat move-stat-priority"><span class="move-stat-label">PRIO</span>${prio}</span>` : ''}
+          </div>
+          <p class="move-effect-text">${effect}</p>`;
+        detailRow.dataset.loaded = '1';
+      } catch {
+        detailRow.querySelector('td').innerHTML =
+          '<span style="color:var(--text-dim);font-size:12px;">FAILED TO LOAD MOVE DATA</span>';
+      }
     });
   });
 }
@@ -1172,7 +1284,7 @@ function renderAbout(app) {
     <div class="about-page fade-in">
       <h2 class="section-title">// ABOUT PKDEX //</h2>
       <div class="about-card">
-        <p>PKDEX is a personal side project — a retro-styled Pokédex built as a portfolio piece to demonstrate front-end development skills.</p>
+        <p>PKDEX is a personal side project — a Pokédex built as a portfolio piece to demonstrate front-end development skills. The retro terminal aesthetic is a deliberate stylistic choice, not a reflection of general design sensibility. For a more professional and corporate-friendly presentation of the same developer's work, see <a href="https://scandiking.github.io/TvenningsPortfolio" target="_blank" rel="noopener" class="accent-link">Tvenning's Portfolio</a> or <a href="https://landlosen.vercel.app" target="_blank" rel="noopener" class="accent-link">Landlosen</a>.</p>
         <p>It is not affiliated with, endorsed by, or connected to Nintendo, Game Freak, or The Pokémon Company in any way. All Pokémon data is sourced from the open <a href="https://pokeapi.co" target="_blank" rel="noopener" class="accent-link">PokéAPI</a>.</p>
         <p>The project is intentionally kept simple and runs entirely in the browser — no build step, no framework, no backend. Just vanilla HTML, CSS, and JavaScript deployed on Vercel.</p>
         <div class="about-stack">
@@ -1193,5 +1305,75 @@ setupHeaderSearch();
 // Lightbox close wiring
 document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);
 document.querySelector('.lightbox-backdrop')?.addEventListener('click', closeLightbox);
+
+// Cursor flashlight glow
+(function() {
+  const glow = document.createElement('div');
+  glow.className = 'cursor-glow';
+  document.body.appendChild(glow);
+  document.addEventListener('mousemove', e => {
+    glow.style.left = e.clientX + 'px';
+    glow.style.top  = e.clientY + 'px';
+  });
+})();
+
+// Custom cursors — Unown A (default) + Wobbuffet (pointer)
+// Both use dark-fill + white-outline style for consistent retro aesthetic.
+(function() {
+  // --- Unown A: default cursor ---
+  // Letter-A silhouette, tilted 13° CCW to match Windows arrow angle.
+  // Hotspot (13,3) = tip of the A after rotate(-13,16,16).
+  const unownSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">' +
+    '<g transform="rotate(-13,16,16)">' +
+    '<path d="M16,3 L7,28 L25,28 Z" fill="white" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '<rect x="9" y="19" width="14" height="3" rx="1.5" fill="white"/>' +
+    '<path d="M16,3 L7,28 L25,28 Z" fill="#0e0e1c" stroke="#0e0e1c" stroke-linejoin="round"/>' +
+    '<rect x="9" y="19" width="14" height="3" fill="#0e0e1c"/>' +
+    '<ellipse cx="16" cy="13" rx="2.8" ry="3.2" fill="#ff3366"/>' +
+    '<circle cx="15" cy="12" r="0.8" fill="white" fill-opacity="0.7"/>' +
+    '</g></svg>';
+
+  // --- Wobbuffet: pointer cursor ---
+  // Body + saluting arm. Hotspot (27,2) = fingertip of the raised arm.
+  // Wobbuffet is drawn facing right then mirrored so the saluting arm points upper-left,
+  // matching the conventional pointer cursor direction. Hotspot (4,2) = fingertip.
+  const wobbSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">' +
+    '<g transform="translate(32,0) scale(-1,1)">' +
+    // White halo layer
+    '<ellipse cx="14" cy="20" rx="10" ry="11" fill="white"/>' +
+    '<line x1="22" y1="13" x2="28" y2="2" stroke="white" stroke-width="5" stroke-linecap="round"/>' +
+    '<line x1="6"  y1="16" x2="2"  y2="23" stroke="white" stroke-width="4" stroke-linecap="round"/>' +
+    // Dark body
+    '<ellipse cx="14" cy="20" rx="10" ry="11" fill="#0e0e1c"/>' +
+    '<line x1="22" y1="13" x2="28" y2="2" stroke="#0e0e1c" stroke-width="3" stroke-linecap="round"/>' +
+    '<line x1="6"  y1="16" x2="2"  y2="23" stroke="#0e0e1c" stroke-width="2.5" stroke-linecap="round"/>' +
+    // Eyes
+    '<circle cx="10" cy="17" r="2.5" fill="white"/>' +
+    '<circle cx="18" cy="17" r="2.5" fill="white"/>' +
+    '<circle cx="10" cy="17" r="1.5" fill="#0e0e1c"/>' +
+    '<circle cx="18" cy="17" r="1.5" fill="#0e0e1c"/>' +
+    '<circle cx="9.3" cy="16.3" r="0.6" fill="white" fill-opacity="0.7"/>' +
+    '<circle cx="17.3" cy="16.3" r="0.6" fill="white" fill-opacity="0.7"/>' +
+    '</g></svg>';
+
+  const unownUrl = 'url("data:image/svg+xml;base64,' + btoa(unownSvg) + '") 13 3';
+  const wobbUrl  = 'url("data:image/svg+xml;base64,' + btoa(wobbSvg)  + '") 4 2';
+
+  const st = document.createElement('style');
+  // * has specificity 0,0,0,0 — every other selector beats it, so Wobbuffet rules
+  // always override Unown without needing higher specificity hacks.
+  st.textContent =
+    '* { cursor: ' + unownUrl + ', auto !important; }' +
+    'a, button, [role="button"], label, select,' +
+    '.poke-card, .nav-link, .logo, .type-badge, .type-filter-btn,' +
+    '.gen-btn, .sort-btn, .sort-dir-btn, .btn, .move-row,' +
+    '#search-go, #apply-filter, #sort-dir, #load-more { cursor: ' + wobbUrl + ', pointer !important; }' +
+    'input, textarea { cursor: text !important; }' +
+    '.poke-card-img-wrap { cursor: zoom-in !important; }' +
+    '.lightbox-backdrop { cursor: zoom-out !important; }';
+  document.head.appendChild(st);
+})();
 
 router();
