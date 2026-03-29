@@ -215,12 +215,14 @@ function evolveTriggerLabel(details) {
 }
 
 // ---- POKEMON CARD ----
-function pokemonCard(p) {
+function pokemonCard(p, idx = 0) {
   const type  = p.types[0].type.name;
   const img   = officialArt(p.sprites);
   const name  = p.name.replace(/-/g, ' ').toUpperCase();
+  const delay = Math.min(idx * 0.055, 0.55).toFixed(3);
   return `
-    <div class="poke-card fade-in" data-type="${type}"
+    <div class="poke-card" data-type="${type}"
+         style="animation: cardEnter 0.45s ease ${delay}s both"
          onclick="navigate('#/pokemon/${p.id}')" role="button" tabindex="0"
          onkeydown="if(event.key==='Enter')navigate('#/pokemon/${p.id}')">
       <div class="poke-card-number">#${padId(p.id)}</div>
@@ -265,7 +267,7 @@ async function renderHome(app) {
       </p>
 
       <div class="featured-grid">
-        ${mons.map(pokemonCard).join('')}
+        ${mons.map((p, i) => pokemonCard(p, i)).join('')}
       </div>
 
       <div class="home-actions">
@@ -404,7 +406,7 @@ async function renderSearch(app, route) {
       mons = mons.filter(Boolean);
     }
 
-    const cards = mons.map(pokemonCard).join('');
+    const cards = mons.map((p, i) => pokemonCard(p, i)).join('');
     const loadMore = currentResults.length > start + PAGE_SIZE
       ? `<div class="load-more-wrap">
            <button class="btn btn-secondary" id="load-more">
@@ -1100,7 +1102,7 @@ async function renderFilter(app, route = {}) {
 
     infoEl.textContent = `FOUND: ${filtered.length} UNIT${filtered.length !== 1 ? 'S' : ''}`;
     resultsEl.innerHTML = filtered.length
-      ? filtered.map(pokemonCard).join('')
+      ? filtered.map((p, i) => pokemonCard(p, i)).join('')
       : `<p class="no-results">// NO POKÉMON MATCH THESE FILTERS //</p>`;
   }
 }
@@ -1374,6 +1376,88 @@ document.querySelector('.lightbox-backdrop')?.addEventListener('click', closeLig
     '.poke-card-img-wrap { cursor: zoom-in !important; }' +
     '.lightbox-backdrop { cursor: zoom-out !important; }';
   document.head.appendChild(st);
+})();
+
+// ---- STARFIELD ----
+(function initStarfield() {
+  const canvas = document.getElementById('starfield');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, stars;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function mkStar() {
+    return {
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.4 + 0.2,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: Math.random() * 0.18 + 0.04,
+      base: Math.random() * 0.5 + 0.1,
+      phase: Math.random() * Math.PI * 2,
+      freq: Math.random() * 0.02 + 0.005,
+    };
+  }
+
+  function reset() { resize(); stars = Array.from({ length: 200 }, mkStar); }
+
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t++;
+    for (const s of stars) {
+      const alpha = s.base + Math.sin(s.phase + t * s.freq) * 0.15;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(190,220,255,${Math.max(0.05, alpha)})`;
+      ctx.fill();
+      s.x += s.vx;
+      s.y += s.vy;
+      if (s.y > H + 2)   { s.y = -2;    s.x = Math.random() * W; }
+      if (s.x < -2)      { s.x = W + 2; }
+      if (s.x > W + 2)   { s.x = -2; }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  reset();
+  window.addEventListener('resize', reset);
+  draw();
+})();
+
+// ---- CARD 3D TILT ----
+(function initCardTilt() {
+  document.addEventListener('mousemove', e => {
+    const card = e.target.closest('.poke-card');
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const dx = (e.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2);
+    const dy = (e.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2);
+    card.style.transition = 'transform 0.06s, box-shadow 0.2s';
+    card.style.transform  = `translateY(-6px) perspective(700px) rotateX(${(-dy * 9).toFixed(2)}deg) rotateY(${(dx * 9).toFixed(2)}deg)`;
+  });
+
+  document.addEventListener('mouseout', e => {
+    const card = e.target.closest('.poke-card');
+    if (!card || card.contains(e.relatedTarget)) return;
+    card.style.transition = 'transform 0.35s, box-shadow 0.2s';
+    card.style.transform  = '';
+    // Clean up inline transition after it finishes
+    setTimeout(() => { if (card.style.transition) card.style.transition = ''; }, 380);
+  });
+})();
+
+// ---- SCROLL PARALLAX (home hero) ----
+(function initParallax() {
+  window.addEventListener('scroll', () => {
+    const hero = document.querySelector('.home-hero');
+    if (!hero) return;
+    hero.style.transform = `translateY(${(window.scrollY * 0.28).toFixed(1)}px)`;
+  }, { passive: true });
 })();
 
 router();
